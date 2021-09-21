@@ -19,7 +19,7 @@ float temps[runs];
 //calculated using matrix in matlab
 float A = 9.191896699*pow(10, -3);
 float B = -10.68933374*pow(10, -4);
-float C = 51.48508572*pow(10, -7);
+float C = 5.148508572*pow(10, -6);
 
 void setup() {
   Serial.begin(9600); //start serial monitor
