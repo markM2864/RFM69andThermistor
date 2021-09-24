@@ -31,9 +31,15 @@ const int runs = 10;    //number of runs
 
 //the coefficients for the Steinhart-Hart equation
 //calculated using matrix in matlab
+<<<<<<< HEAD
 double A = 9.191896699*pow(10, -3);
 double B = -10.68933374*pow(10, -4);
 double C = 51.48508572*pow(10, -7);
+=======
+float A = 9.191896699*pow(10, -3);
+float B = -10.68933374*pow(10, -4);
+float C = 5.148508572*pow(10, -6);
+>>>>>>> 4c09c753bc8c2db1a2afbbed28a84c2b905500f6
 
 void setup() {
   Serial.begin(9600); //start serial monitor
