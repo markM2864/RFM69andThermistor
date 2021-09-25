@@ -8,11 +8,10 @@
  */
 #include <math.h> //for pow and log functions
 #include <RH_RF69.h> //RadioHead library for radio functions
-#include <RHGenericDriver.h>
-#include <SPI.h> 
-#include <String.h> //for string functions and converting char array to string
+#include <SPI.h>
+#include <String.h> //to convert char array to strings and back again, also has useful functions
 
-//next three lines aren't used yet
+//these three lines not used yet
 #define NETWORKID     100 // Must be the same for all nodes
 #define MYNODEID      1   // My node ID
 #define TONODEID      2   // Destination node ID
@@ -26,7 +25,7 @@
   #define LED           13 //not used yet
 #endif
 
-// radio driver, this is the object which uses the radio
+//radio driver object
 RH_RF69 rf69(RFM69_CS, RFM69_INT);
 
 //the coefficients for the Steinhart-Hart equation
@@ -43,7 +42,7 @@ void setup() {
   while (!Serial) 
   { 
     delay(1); 
-  } //wait until serial console is open, remove if not tethered to computer
+  } // wait until serial console is open, remove if not tethered to computer
 
   pinMode(LED, OUTPUT);     //not used yet, will be used to indicate data
                             //being received or transmitted
@@ -66,25 +65,18 @@ void setup() {
   {
     Serial.println("RFM69 radio init OK!");
   }
-  //set the frequency
+  
   rf69.setFrequency(RF69_FREQ);
 
   //setting the modulation configuration
   //Rb = 250 kbs and Fd = 250 kHz
-  //error will appear if constants from the RadioHead library
-  //do not have "RH_" in front of them
   rf69.setFrequency(RH_RF69::GFSK_Rb250Fd250);
-  // Not using encryption
+  
   if (!rf69.setFrequency(RF69_FREQ)) 
   {
     Serial.println("setFrequency failed");
   }
   rf69.setTxPower(20, true);  // range from 14-20 for power, 2nd arg must be true for 69HCW
-
-  // The encryption key has to be the same as the one in the server
-  uint8_t key[] = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                    0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
-  rf69.setEncryptionKey(key);
 }
 
 void loop() {
@@ -106,39 +98,41 @@ void loop() {
   temp /= 5;
   temp += 32; //converted to fahrenheit, the steps were expanded to avoid rounding errors
 
-  delay(1000);  
-  int itemp = temp; //convert the temp value to an int
-
-  //place to store incoming data
-  uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
-  uint8_t len = sizeof(buf);
+  //get ready to transmit
+  delay(1000);  // Wait 1 second between transmits
   
-  //look for a message from the transmitter radio
-  if (rf69.waitAvailableTimeout(500)) {
-    if (rf69.recv(buf, &len)) {
-      if (!len) return;
-      buf[len] = 0;
-      String newBuf = (char*)buf;
-      Serial.print("Received ");
-      Serial.println((char*)buf);
+  Serial.print("Sending "); 
+  Serial.println(temp, 0); //essentially prints temp as an int
+  
+  rf69.waitPacketSent(); //wait for it to be sent, blocks the radio until done
 
-      int recTemp = newBuf.toInt();
-      //RSSI = Receiver Signal Strength Indicator
-      //commented out to increase speed of code execution
-      //Serial.print("RSSI: ");
-      //this function returns the most recent indicator for the last message received
-      //Serial.println(rf69.lastRssi(), DEC);
-      
-      // Send a reply so that the transmitter knows the message was received
-      uint8_t data[] = "Got the temp";
-      //Serial.println(recTemp);
-      rf69.send(data, sizeof(data));
-      rf69.waitPacketSent();
-      //Serial.println("Sent a reply");
-    } 
-    else 
-    {
+  // Now wait for a reply
+  uint8_t buf[RH_RF69_MAX_MESSAGE_LEN]; //this is where a received message is stored
+                                        //make it the max length possible
+  uint8_t len = sizeof(buf);            //this is the length or size of the message
+  
+  //start converting the temp integer to a character array
+  //this code will use itoa() function described below
+  //itoa(value to convert, array to store the null-terminated string, base number(I'll use 10))
+  itoa(temp, (char*)buf, 10);
+  
+  rf69.send((uint8_t *)buf, len); //calls the send function, sends an unsignedint or char
+                                  //the second argument is the byte size of the message
+  //check for a message
+  //starts the receiver and blocks until a received message is
+  //available or a timeout occurs
+  if (rf69.waitAvailableTimeout(500))  //might need to adjust the wait time on the transmitter 
+  { 
+    //call the recv function, turns on the receiver if it isn't on
+    //copies the message to buf, then resets the value of len to the
+    //length of the message
+    if (rf69.recv(buf, &len)) {
+      //Serial.print("Got a reply: ");
+      //Serial.println((char*)buf);
+    } else {
       Serial.println("Receive failed");
     }
+  } else {
+    Serial.println("Waiting...");
   }
 }
