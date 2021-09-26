@@ -4,17 +4,20 @@
  * @brief This file calculates the resistance of an NTC thermistor based on output voltage.  
  *        Now contains code to trasnmit a message to another RFM69HCW radio module
  * @author Mark Maurer (mmark2)
- * @date 9/23/2021
+ * @date 9/25/2021
  */
-#include <math.h>
-#include <RH_RF69.h>
-#include <SPI.h>
+#include <math.h> //for pow and log functions
+#include <RH_RF69.h> //RadioHead library for radio functions
+#include <RHGenericDriver.h>
+#include <SPI.h> 
+#include <String.h> //for string functions and converting char array to string
 
+//next three lines aren't used yet
 #define NETWORKID     100 // Must be the same for all nodes
 #define MYNODEID      1   // My node ID
 #define TONODEID      2   // Destination node ID
 
-#define RF69_FREQ   433   //setting frequency to 433 MHz
+#define RF69_FREQ   433.0   //setting frequency to 433 MHz
 
 #if defined (__AVR_ATmega328P__)  // UNO or Feather 328P w/wing
   #define RFM69_INT     3  // 
@@ -23,11 +26,8 @@
   #define LED           13 //not used yet
 #endif
 
-// Singleton instance of the radio driver
+// radio driver, this is the object which uses the radio
 RH_RF69 rf69(RFM69_CS, RFM69_INT);
-
-//declaring global calculating averages
-const int runs = 10;    //number of runs
 
 //the coefficients for the Steinhart-Hart equation
 //calculated using matrix in matlab
@@ -43,7 +43,7 @@ void setup() {
   while (!Serial) 
   { 
     delay(1); 
-  } // wait until serial console is open, remove if not tethered to computer
+  } //wait until serial console is open, remove if not tethered to computer
 
   pinMode(LED, OUTPUT);     //not used yet, will be used to indicate data
                             //being received or transmitted
@@ -66,9 +66,15 @@ void setup() {
   {
     Serial.println("RFM69 radio init OK!");
   }
-  // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM (for low power module)
-  //use setModemConfig(ModemConfigChoice index) to change modulation setting
-  // No encryption
+  //set the frequency
+  rf69.setFrequency(RF69_FREQ);
+
+  //setting the modulation configuration
+  //Rb = 250 kbs and Fd = 250 kHz
+  //error will appear if constants from the RadioHead library
+  //do not have "RH_" in front of them
+  rf69.setFrequency(RH_RF69::GFSK_Rb250Fd250);
+  // Not using encryption
   if (!rf69.setFrequency(RF69_FREQ)) 
   {
     Serial.println("setFrequency failed");
@@ -106,27 +112,29 @@ void loop() {
   //place to store incoming data
   uint8_t buf[RH_RF69_MAX_MESSAGE_LEN];
   uint8_t len = sizeof(buf);
+  
   //look for a message from the transmitter radio
-  if (rf69.available()) {
+  if (rf69.waitAvailableTimeout(500)) {
     if (rf69.recv(buf, &len)) {
       if (!len) return;
       buf[len] = 0;
-      Serial.print("Received [");
-      Serial.print(len);
-      Serial.print("]: ");
+      String newBuf = (char*)buf;
+      Serial.print("Received ");
       Serial.println((char*)buf);
 
-      int recTemp = buf;
+      int recTemp = newBuf.toInt();
       //RSSI = Receiver Signal Strength Indicator
-      Serial.print("RSSI: ");
+      //commented out to increase speed of code execution
+      //Serial.print("RSSI: ");
       //this function returns the most recent indicator for the last message received
-      Serial.println(rf69.lastRssi(), DEC);
+      //Serial.println(rf69.lastRssi(), DEC);
       
       // Send a reply so that the transmitter knows the message was received
       uint8_t data[] = "Got the temp";
+      //Serial.println(recTemp);
       rf69.send(data, sizeof(data));
       rf69.waitPacketSent();
-      Serial.println("Sent a reply");
+      //Serial.println("Sent a reply");
     } 
     else 
     {
